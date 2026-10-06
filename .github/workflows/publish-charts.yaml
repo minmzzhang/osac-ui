@@ -24,8 +24,9 @@ jobs:
         CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
       run: |
-        # No build-metadata (+...) suffix allowed: this tag is used verbatim as a
-        # container image tag downstream, and Docker/OCI tags cannot contain '+'.
+        # Git release tags stay vX.Y.Z. Image tags are bare SemVer (OSAC-6089);
+        # strip the v when composing the image ref below. Reject build-metadata
+        # (+...) — Docker/OCI tags cannot contain '+'.
         semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(\.((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$'
         if ! [[ "$HEAD_BRANCH" =~ $semver_re ]]; then
           echo "::error::Tag '$HEAD_BRANCH' is not a valid semver release tag"
@@ -80,13 +81,13 @@ jobs:
         # Get the git version from the tag that triggered the image build:
         export git_version="${TAG}"
 
-        # Update the image reference in the chart:
-        export app_version="${git_version}"
-        export app_image="${registry}/${REPO}:${app_version}"
+        # OSAC-6089: chart/image use bare SemVer; git tag keeps the v prefix.
+        export chart_version="${git_version#v}"
+        export app_version="${chart_version}"
+        export app_image="${registry}/${REPO}:${chart_version}"
         yq -i '.images.ui = strenv(app_image)' charts/ui/values.yaml
 
         # Package the chart:
-        export chart_version="${git_version#v}"
         helm package charts/ui --version "${chart_version}" --app-version "${app_version}"
 
         # Push the chart to the registry:

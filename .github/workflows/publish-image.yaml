@@ -44,7 +44,11 @@ jobs:
         with:
           context: git
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # OSAC-6089: image tags are bare SemVer ({{version}}) to match
+          # mono-repo umbrella stamp/promote. Keep v{{version}} during
+          # transition for existing consumers; floating major/minor stay v*.
           tags: |
+            type=semver,pattern={{version}}
             type=semver,pattern=v{{version}}
             type=semver,pattern=v{{major}}.{{minor}}
             type=semver,pattern=v{{major}}
